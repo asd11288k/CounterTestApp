@@ -52,18 +52,28 @@ public final class KmTools {
     public static String promptCatalogue(Context context) {
         java.util.Set<String> enabled = KmPluginManager.enabledToolNames(context);
         StringBuilder out = new StringBuilder("当前由已启用插件开放的工具：\\n");
-        String[] lines = promptCatalogue(true).split("\\n");
-        for (String line : lines) {
-            if (!line.startsWith("- ")) continue;
-            int colon = line.indexOf('：');
-            if (colon < 0) colon = line.indexOf(':');
-            if (colon <= 2) continue;
-            String name = line.substring(2, colon).trim();
-            if (enabled.contains(name)) out.append(line).append("\\n");
-        }
+        addToolLine(out, enabled, "get_screen", "读取当前界面的可见控件、文本和 bounds。");
+        addToolLine(out, enabled, "tap", "点击指定屏幕坐标；需要用户确认。");
+        addToolLine(out, enabled, "long_press", "长按指定屏幕坐标；需要用户确认。");
+        addToolLine(out, enabled, "swipe", "从起点滑动到终点；需要用户确认。");
+        addToolLine(out, enabled, "click_text", "点击文本或内容描述匹配的控件；需要用户确认。");
+        addToolLine(out, enabled, "set_text", "向焦点或匹配输入框写入文本；需要用户确认。");
+        addToolLine(out, enabled, "press_back", "执行 Android 返回操作；需要用户确认。");
+        addToolLine(out, enabled, "press_home", "返回 Android 主屏幕；需要用户确认。");
+        addToolLine(out, enabled, "open_app", "按名称或包名启动应用；需要用户确认。");
+        addToolLine(out, enabled, "list_workspace", "列出 KM 私有工作区文件。");
+        addToolLine(out, enabled, "read_file", "读取 KM 私有工作区的 UTF-8 文件。");
+        addToolLine(out, enabled, "write_file", "写入 KM 私有工作区文件；需要用户确认。");
+        addToolLine(out, enabled, "delete_file", "删除 KM 私有工作区文件；需要用户确认。");
         if (enabled.isEmpty()) out.append("（没有启用可执行工具；仍可正常聊天。）\\n");
         out.append("工具来源和启用状态由 KM 插件中心控制。");
         return out.toString();
+    }
+
+    private static void addToolLine(StringBuilder out, java.util.Set<String> enabled,
+                                    String name, String description) {
+        if (enabled.contains(name)) out.append("- ").append(name).append("：")
+                .append(description).append("\\n");
     }
 
     public static JSONArray schemas() {

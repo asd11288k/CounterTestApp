@@ -19,9 +19,9 @@ android {
     signingConfigs {
         stable {
             storeFile rootProject.file(".km-signing/km-release.jks")
-            storePassword System.getenv("KM_STORE_PASSWORD") ?: ""
+            storePassword "android"
             keyAlias "km-release"
-            keyPassword System.getenv("KM_KEY_PASSWORD") ?: ""
+            keyPassword "android"
         }
     }
 

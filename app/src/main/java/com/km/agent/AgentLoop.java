@@ -57,7 +57,7 @@ public final class AgentLoop {
         while (q < reply.length() && Character.isWhitespace(reply.charAt(q))) q++;
         if (q >= reply.length()) return null;
         char quote = reply.charAt(q);
-        if (quote != '"' && quote != '\\'') return null;
+        if (quote != '"') return null;
         int nameEnd = reply.indexOf(quote, q + 1);
         int openEnd = nameEnd < 0 ? -1 : reply.indexOf('>', nameEnd + 1);
         int closeStart = openEnd < 0 ? -1 : reply.indexOf("</tool>", openEnd + 1);
@@ -94,7 +94,7 @@ public final class AgentLoop {
 
     private static String unescapeXml(String value) {
         return value == null ? "" : value.replace("&lt;", "<").replace("&gt;", ">")
-                .replace("&quot;", "\\"").replace("&apos;", "'").replace("&amp;", "&");
+                .replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&");
     }
 
     /** 从模型回复里找出第一个工具调用；没有返回 null。 */

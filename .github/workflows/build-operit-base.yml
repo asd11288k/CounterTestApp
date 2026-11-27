@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - .github/workflows/build-operit-base.yml
+      - ci/apply_km_overlay.py
+      - app/src/main/res/mipmap-xxxhdpi/ic_launcher.jpg
       - .gitmodules
       - docs/OPERIT_PORT_PLAN.md
 
@@ -140,6 +142,10 @@ jobs:
           npm run build:examples:github
           python3 tools/example_packages/sync_example_packages.py --no-hot-reload
 
+      - name: Apply KM product identity and launcher icon
+        working-directory: vendor/operit
+        run: python3 ../ci/apply_km_overlay.py "$PWD"
+
       - name: Configure Android SDK
         working-directory: vendor/operit
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
@@ -154,7 +160,7 @@ jobs:
       - name: Upload native base APK
         uses: actions/upload-artifact@v4
         with:
-          name: operit-native-base-${{ github.run_number }}
+          name: km-native-agent-${{ github.run_number }}
           path: vendor/operit/app/build/outputs/apk/clone/app-clone.apk
           if-no-files-found: error
           retention-days: 14

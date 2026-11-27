@@ -37,6 +37,35 @@ public final class KmTools {
                 + "坐标来自 get_screen 的 bounds；执行屏幕变更工具前先确认用户意图。";
     }
 
+    public static JSONArray schemas(java.util.Set<String> enabledNames) {
+        JSONArray all = schemas();
+        JSONArray filtered = new JSONArray();
+        if (enabledNames == null) return filtered;
+        for (int i = 0; i < all.length(); i++) {
+            JSONObject item = all.optJSONObject(i);
+            JSONObject fn = item == null ? null : item.optJSONObject("function");
+            if (fn != null && enabledNames.contains(fn.optString("name"))) filtered.put(item);
+        }
+        return filtered;
+    }
+
+    public static String promptCatalogue(Context context) {
+        java.util.Set<String> enabled = KmPluginManager.enabledToolNames(context);
+        StringBuilder out = new StringBuilder("当前由已启用插件开放的工具：\\n");
+        String[] lines = promptCatalogue(true).split("\\n");
+        for (String line : lines) {
+            if (!line.startsWith("- ")) continue;
+            int colon = line.indexOf('：');
+            if (colon < 0) colon = line.indexOf(':');
+            if (colon <= 2) continue;
+            String name = line.substring(2, colon).trim();
+            if (enabled.contains(name)) out.append(line).append("\\n");
+        }
+        if (enabled.isEmpty()) out.append("（没有启用可执行工具；仍可正常聊天。）\\n");
+        out.append("工具来源和启用状态由 KM 插件中心控制。");
+        return out.toString();
+    }
+
     public static JSONArray schemas() {
         JSONArray tools = new JSONArray();
         tools.put(function("get_screen", "读取当前屏幕的控件树、文本和坐标。不会点击或修改界面。", objectSchema(new String[0], new String[0])));

@@ -1111,6 +1111,16 @@ public final class LocalGateway {
                 effGuide(), effManual(), setting, enabledProfile, effortHint().trim(), activeSkill,
                 plugins.enabledPromptSections(), plugins.filterTools(Tools.list()), runtimeSnapshot());
         JSONArray sections = PromptPipeline.buildSections(context);
+        // Record only prompt assembly metadata. Prompt bodies, user text, and credentials stay out of the journal.
+        if (eventJournal != null) {
+            try {
+                eventJournal.record("prompt.compose", "agent", new JSONObject()
+                        .put("count", sections.length())
+                        .put("enabled", activeSkill.length() > 0)
+                        .put("moduleId", "prompt-runtime")
+                        .put("source", "native"));
+            } catch (JSONException ignored) { }
+        }
         try {
             JSONObject meta = new JSONObject()
                     .put("effort", readPrefs().reasoningEffort)

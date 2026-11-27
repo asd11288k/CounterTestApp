@@ -9,6 +9,7 @@ on:
       - ci/apply_km_overlay.py
       - ci/patch_operit_runtime.py
       - patches/operit/**
+      - ui/helper/index.html
       - app/src/main/res/mipmap-xxxhdpi/ic_launcher.jpg
       - .gitmodules
       - docs/OPERIT_PORT_PLAN.md
@@ -160,6 +161,12 @@ jobs:
       - name: Integrate KM runtime journal and dynamic prompt context
         working-directory: vendor/operit
         run: python3 ../../ci/patch_operit_runtime.py "$PWD"
+
+      - name: Stage Helper pure-frontend shell asset
+        working-directory: vendor/operit
+        run: |
+          mkdir -p app/src/main/assets/km-shell
+          cp ../../ui/helper/index.html app/src/main/assets/km-shell/index.html
 
       - name: Configure Android SDK and stable KM signing
         working-directory: vendor/operit

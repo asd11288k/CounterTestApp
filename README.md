@@ -2,7 +2,7 @@
 
 km 是一个面向个人使用的 Android Agent。新版本保留 helper 的前端页面与启动图标，在 helper 的 WebView 外壳内逐步重建并迁移 Operit 风格的 Agent 运行架构。
 
-## 当前基础迁移版本 1.0.0
+## 当前基础迁移版本 1.0.1
 
 - helper 原版 HTML/CSS/JS 前端。
 - Android WebView 宿主与仅监听 127.0.0.1 的本地 HTTP 网关。
@@ -28,13 +28,13 @@ Operit 上游仓库标注 LGPL-3.0-only。后续若直接移植其代码或资�
 
 应用显示名称：km  
 Android applicationId：`com.km.agent.mobile`  
-版本：1.0.0（versionCode 4）
+版本：1.0.1（versionCode 4）
 
 applicationId 与原 KM 0.3 系列一致，构建工作流沿用稳定签名配置，目标是支持覆盖更新。首次迁移后的数据结构发生变化，旧版专有会话数据并不会自动转换为 helper 的智能体/会话存储。
 
 ## 自动构建
 
-向 main 分支提交后，GitHub Actions 自动构建 APK。进入 Actions 页面，打开最新成功记录，在 Artifacts 下载 `km-1.0.0-signed` 并解压安装。
+向 main 分支提交后，GitHub Actions 自动构建 APK。进入 Actions 页面，打开最新成功记录，在 Artifacts 下载 `km-1.0.1-signed` 并解压安装。
 
 ## 参考项目
 

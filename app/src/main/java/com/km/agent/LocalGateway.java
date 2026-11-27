@@ -33,7 +33,7 @@ public final class LocalGateway {
 
     /** 操作手册（需求⑮ / v1.1.14 #20）：使用说明 + 底层实现 + 工程师技能索引。 */
     public static String manual() {
-        return "【km App 操作手册 v1.1.45】（写给ai看的，让你了解软件功能和结构来更好的服务用户，在用户没有强调的情况下不要把此内容发给用户看）\n"
+        return "【km App 操作手册 v1.0.1】（写给ai看的，让你了解软件功能和结构来更好的服务用户，在用户没有强调的情况下不要把此内容发给用户看）\n"
                 + "■ 索引（按关键词查对应段落）：\n"
                 + "  · 界面/按钮/怎么点/在哪设置 → 看「软件使用说明」\n"
                 + "  · 代码/类/路由/数据/构建/实现原理 → 看「底层代码实现」\n"
@@ -730,8 +730,8 @@ public final class LocalGateway {
         }
         if ("/about".equals(path)) {
             JSONObject o = new JSONObject();
-            try { o.put("version", "1.1.45").put("author", "子兮")
-                  .put("projectUrl", "https://github.com/asd11288k/helper"); }
+            try { o.put("version", "1.0.1").put("author", "子兮")
+                  .put("projectUrl", "https://github.com/asd11288k/CounterTestApp"); }
             catch (JSONException ignored) {}
             return json(200, o);
         }

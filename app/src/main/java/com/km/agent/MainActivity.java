@@ -24,6 +24,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import android.widget.FrameLayout;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -383,11 +384,17 @@ public class MainActivity extends Activity {
         final String initialTheme = savedTheme(dir);
         applyTheme(initialTheme);
         web = new WebView(this);
-        // Android 15 / targetSdk 35 强制 edge-to-edge，显式给 WebView 应用系统栏和刘海屏安全区。
+        // Use a native root container as the insets owner. Some Android 15/OEM WebView
+        // implementations do not dispatch decor insets reliably to a WebView used as
+        // the content root; the container receives them and applies safe padding to WebView.
         web.setBackgroundColor(lastBarColor);
-        setContentView(web, new ViewGroup.LayoutParams(
+        FrameLayout root = new FrameLayout(this);
+        root.setFitsSystemWindows(false);
+        root.addView(web, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        applySystemInsets(web);
+        setContentView(root, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        applySystemInsets(root, web);
         WebSettings ws = web.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);          // 页面 fetch/localStorage 需要
@@ -422,9 +429,9 @@ public class MainActivity extends Activity {
      * targetSdk 35 enables edge-to-edge enforcement on Android 15, so
      * fitsSystemWindows alone is not a reliable content-safe-area strategy.
      */
-    private void applySystemInsets(final WebView target) {
-        target.setFitsSystemWindows(false);
-        target.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+    private void applySystemInsets(final View insetHost, final WebView target) {
+        insetHost.setFitsSystemWindows(false);
+        insetHost.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
             @Override
             public WindowInsets onApplyWindowInsets(View view, WindowInsets insets) {
                 int left;
@@ -451,11 +458,13 @@ public class MainActivity extends Activity {
                         bottom = Math.max(bottom, cutout.getSafeInsetBottom());
                     }
                 }
-                view.setPadding(left, top, right, bottom);
+                // Apply safe area to the WebView itself, so HTML viewport and fixed
+                // headers start below status bar/cutout and end above navigation bar.
+                target.setPadding(left, top, right, bottom);
                 return insets;
             }
         });
-        target.requestApplyInsets();
+        insetHost.requestApplyInsets();
     }
 
     private byte[] readAsset(String name) throws Exception {

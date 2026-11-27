@@ -78,6 +78,8 @@ KM 以原生 Android Agent 运行时为核心，界面保留现有轻量 Web UI 
 
 ## 目前已提交的进度
 
+- 继续执行完整原生 APK 构建验收；未通过签名校验前不发布安装包。
+
 - 固定上游源码子模块，并按上游指南只初始化公开的 terminal 子模块。
 - 新增原生 Operit 独立构建流程，使用 JDK 21、Android SDK/NDK、CMake、Node、Python、Rust 和上游依赖准备脚本。
 - 已验证上游依赖下载、依赖解包、native ripgrep、WebChat、年度报告和 ToolPkg 预构建步骤均成功；首次完整 Gradle APK 构建仍在验证中。

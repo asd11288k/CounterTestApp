@@ -67,12 +67,15 @@ public class MainActivity extends Activity {
     private TextView accessChip;
     private TextView sendButton;
     private TextView stopButton;
+    private TextView roleChip;
+    private static final int REQUEST_IMPORT_PLUGIN = 7041;
     private boolean busy = false;
     private volatile KmAgent currentAgent;
 
     private static class ChatSession {
         String id;
         String title;
+        String characterId;
         long updatedAt;
         ArrayList<JSONObject> messages = new ArrayList<>();
 
@@ -103,7 +106,7 @@ public class MainActivity extends Activity {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);
-        root.setPadding(dp(16), dp(8), dp(16), dp(10));
+        root.setPadding(dp(16), dp(10), dp(16), dp(8));
 
         root.addView(buildHeader());
         root.addView(buildStatusCards());
@@ -111,7 +114,35 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         root.addView(buildComposer());
 
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+        }
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int left;
+            int top;
+            int right;
+            int bottom;
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets bars = insets.getInsets(
+                        android.view.WindowInsets.Type.systemBars()
+                                | android.view.WindowInsets.Type.displayCutout());
+                android.graphics.Insets ime = insets.getInsets(android.view.WindowInsets.Type.ime());
+                left = bars.left;
+                top = bars.top;
+                right = bars.right;
+                bottom = Math.max(bars.bottom, ime.bottom);
+            } else {
+                left = insets.getSystemWindowInsetLeft();
+                top = insets.getSystemWindowInsetTop();
+                right = insets.getSystemWindowInsetRight();
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            root.setPadding(dp(15) + left, dp(10) + top, dp(15) + right, dp(8) + bottom);
+            return insets;
+        });
         setContentView(root);
+        root.requestApplyInsets();
     }
 
     private View buildHeader() {
@@ -214,8 +245,12 @@ public class MainActivity extends Activity {
         heading.setGravity(Gravity.CENTER_VERTICAL);
         TextView chatTitle = label("对话", 14, TEXT, true);
         heading.addView(chatTitle, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        TextView sessionName = label("当前会话", 10, MUTED, false);
-        heading.addView(sessionName);
+        roleChip = label("✦ KM 助理  ▾", 10, TEXT, true);
+        roleChip.setGravity(Gravity.CENTER);
+        roleChip.setPadding(dp(10), dp(7), dp(10), dp(7));
+        roleChip.setBackground(rounded(PANEL_2, 11, BORDER));
+        roleChip.setOnClickListener(v -> showCharacterCards());
+        heading.addView(roleChip);
         frame.addView(heading);
 
         View line = new View(this);
@@ -251,7 +286,12 @@ public class MainActivity extends Activity {
         addQuickAction(shortcuts, "◉  看屏幕", "读取当前手机界面，告诉我有哪些内容和可操作控件。");
         addQuickAction(shortcuts, "▣  打开应用", "帮我打开一个应用。先告诉我你需要应用名称。");
         addQuickAction(shortcuts, "⌘  规划任务", "先分析我的目标，给出一个简短执行计划；得到我确认后再操作手机。");
-        area.addView(shortcuts);
+        HorizontalScrollView quickScroll = new HorizontalScrollView(this);
+        quickScroll.setHorizontalScrollBarEnabled(false);
+        quickScroll.setFillViewport(false);
+        quickScroll.addView(shortcuts);
+        area.addView(quickScroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         LinearLayout composer = new LinearLayout(this);
         composer.setGravity(Gravity.BOTTOM);
@@ -319,8 +359,8 @@ public class MainActivity extends Activity {
         chip.setGravity(Gravity.CENTER);
         chip.setPadding(dp(8), dp(7), dp(8), dp(7));
         chip.setBackground(rounded(PANEL_2, 12, BORDER));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(32), 1);
-        lp.rightMargin = dp(5);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(112), dp(34));
+        lp.rightMargin = dp(7);
         chip.setOnClickListener(v -> {
             input.setText(prompt);
             input.setSelection(input.length());
@@ -356,6 +396,7 @@ public class MainActivity extends Activity {
     }
 
     private void renderCurrentSession() {
+        updateBadges();
         chatColumn.removeAllViews();
         if (currentSession == null || currentSession.messages.isEmpty()) {
             addWelcome();
@@ -425,7 +466,8 @@ public class MainActivity extends Activity {
         bubble.setPadding(dp(13), dp(11), dp(13), dp(11));
         bubble.setBackground(rounded(user ? Color.rgb(45, 91, 168) : PANEL_2, 16,
                 user ? 0 : BORDER));
-        bubble.setMaxWidth(dp(310));
+        int availableWidth = getResources().getDisplayMetrics().widthPixels - dp(104);
+        bubble.setMaxWidth(Math.min(Math.max(dp(220), availableWidth), dp(620)));
         message.addView(bubble, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         chatColumn.addView(message);
@@ -474,6 +516,12 @@ public class MainActivity extends Activity {
             boolean enabled = KmAccessibilityService.isEnabled(this);
             accessChip.setText(enabled ? "● 手机操作已启用" : "○ 点击启用无障碍");
             accessChip.setTextColor(enabled ? GREEN : MUTED);
+        }
+        if (roleChip != null) {
+            JSONObject active = KmCharacterManager.getActive(this);
+            String icon = active == null ? "✦" : active.optString("icon", "✦");
+            String name = active == null ? "KM 助理" : active.optString("name", "KM 助理");
+            roleChip.setText(icon + "  " + name + "  ▾");
         }
     }
 
@@ -732,16 +780,19 @@ public class MainActivity extends Activity {
     }
 
     private void showMoreMenu() {
-        String[] items = {"会话管理", "查看系统提示词", "导出当前对话", "清空当前对话", "设备权限设置"};
+        String[] items = {"角色卡管理", "插件中心", "查看动态系统提示词", "会话管理",
+                "导出当前对话", "清空当前对话", "设备权限设置"};
         new AlertDialog.Builder(this)
-                .setTitle("km")
+                .setTitle("km · 控制中心")
                 .setItems(items, (dialog, which) -> {
                     switch (which) {
-                        case 0: showSessions(); break;
-                        case 1: showPromptPreview(); break;
-                        case 2: exportCurrentSession(); break;
-                        case 3: clearCurrentSession(); break;
-                        case 4: openAccessibilitySettings(); break;
+                        case 0: showCharacterCards(); break;
+                        case 1: showPluginManager(); break;
+                        case 2: showPromptPreview(); break;
+                        case 3: showSessions(); break;
+                        case 4: exportCurrentSession(); break;
+                        case 5: clearCurrentSession(); break;
+                        case 6: openAccessibilitySettings(); break;
                     }
                 })
                 .show();
@@ -753,6 +804,7 @@ public class MainActivity extends Activity {
             return;
         }
         currentSession = new ChatSession(UUID.randomUUID().toString(), "新会话");
+        currentSession.characterId = KmCharacterManager.getActiveId(this);
         sessions.add(0, currentSession);
         while (sessions.size() > 12) sessions.remove(sessions.size() - 1);
         persistSessions();
@@ -771,6 +823,9 @@ public class MainActivity extends Activity {
                 .setTitle("会话历史")
                 .setItems(names, (dialog, which) -> {
                     currentSession = sessions.get(which);
+                    if (currentSession.characterId != null && !currentSession.characterId.isEmpty()) {
+                        KmCharacterManager.setActiveId(this, currentSession.characterId);
+                    }
                     persistSessions();
                     renderCurrentSession();
                     updateStatus("已切换会话");
@@ -829,6 +884,7 @@ public class MainActivity extends Activity {
                     ChatSession session = new ChatSession(item.optString("id", UUID.randomUUID().toString()),
                             item.optString("title", "会话"));
                     session.updatedAt = item.optLong("updatedAt", System.currentTimeMillis());
+                    session.characterId = item.optString("characterId", KmCharacterManager.getActiveId(this));
                     JSONArray messages = item.optJSONArray("messages");
                     if (messages != null) {
                         int start = Math.max(0, messages.length() - 100);
@@ -850,9 +906,16 @@ public class MainActivity extends Activity {
             }
         }
         if (currentSession == null && !sessions.isEmpty()) currentSession = sessions.get(0);
+        if (currentSession != null) {
+            if (currentSession.characterId == null || currentSession.characterId.isEmpty()) {
+                currentSession.characterId = KmCharacterManager.getActiveId(this);
+            }
+            KmCharacterManager.setActiveId(this, currentSession.characterId);
+        }
 
         if (currentSession == null) {
             ChatSession migrated = new ChatSession(UUID.randomUUID().toString(), "旧会话");
+            migrated.characterId = KmCharacterManager.getActiveId(this);
             String oldHistory = prefs.getString("history", "[]");
             try {
                 JSONArray old = new JSONArray(oldHistory);
@@ -879,6 +942,7 @@ public class MainActivity extends Activity {
             try {
                 item.put("id", s.id);
                 item.put("title", s.title);
+                item.put("characterId", s.characterId == null ? KmCharacterManager.getActiveId(this) : s.characterId);
                 item.put("updatedAt", s.updatedAt);
                 item.put("messages", messages);
                 array.put(item);
@@ -888,6 +952,225 @@ public class MainActivity extends Activity {
                 .putString(STORE_SESSIONS, array.toString())
                 .putString(STORE_ACTIVE, currentSession == null ? "" : currentSession.id)
                 .apply();
+    }
+
+
+    private void showCharacterCards() {
+        org.json.JSONArray cards = KmCharacterManager.list(this);
+        String[] labels = new String[cards.length()];
+        for (int i = 0; i < cards.length(); i++) {
+            JSONObject item = cards.optJSONObject(i);
+            if (item == null) continue;
+            boolean active = item.optString("id").equals(KmCharacterManager.getActiveId(this));
+            labels[i] = (active ? "● " : "○ ")
+                    + item.optString("icon", "✦") + "  "
+                    + item.optString("name", "未命名角色") + "  ·  "
+                    + item.optString("subtitle", "");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("角色卡 · 选择当前人格")
+                .setItems(labels, (dialog, which) -> {
+                    JSONObject selected = cards.optJSONObject(which);
+                    if (selected != null) showCharacterOptions(selected);
+                })
+                .setPositiveButton("＋ 新建角色卡", (d, w) -> editCharacterCard(null))
+                .setNegativeButton("关闭", null)
+                .show();
+    }
+
+    private void showCharacterOptions(JSONObject card) {
+        String id = card.optString("id", "");
+        boolean builtin = card.optBoolean("builtin", false);
+        String prompt = card.optString("systemPrompt", "");
+        if (prompt.length() > 700) prompt = prompt.substring(0, 700) + "…";
+        new AlertDialog.Builder(this)
+                .setTitle(card.optString("icon", "✦") + "  " + card.optString("name", "角色卡"))
+                .setMessage(card.optString("subtitle", "") + "\n\n" + prompt)
+                .setPositiveButton("设为当前角色", (d, w) -> {
+                    KmCharacterManager.setActiveId(this, id);
+                    if (currentSession != null) currentSession.characterId = id;
+                    persistSessions();
+                    updateBadges();
+                    updateStatus("已切换角色卡：" + card.optString("name"));
+                })
+                .setNeutralButton("编辑设定", (d, w) -> editCharacterCard(card))
+                .setNegativeButton(builtin ? "关闭" : "删除角色", (d, w) -> {
+                    if (!builtin) {
+                        KmCharacterManager.delete(this, id);
+                        if (currentSession != null && id.equals(currentSession.characterId)) {
+                            currentSession.characterId = "km-assistant";
+                            KmCharacterManager.setActiveId(this, "km-assistant");
+                        }
+                        persistSessions();
+                        updateBadges();
+                        updateStatus("已删除自定义角色卡");
+                    }
+                })
+                .show();
+    }
+
+    private void editCharacterCard(JSONObject existing) {
+        boolean editing = existing != null;
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(15), dp(10), dp(15), dp(10));
+        EditText name = settingsField("角色名称", editing ? existing.optString("name") : "");
+        EditText subtitle = settingsField("角色定位 / 简介", editing ? existing.optString("subtitle") : "");
+        EditText icon = settingsField("头像符号（例如 ✦、☾、猫）", editing ? existing.optString("icon", "✦") : "✦");
+        EditText greeting = settingsField("开场语（可选）", editing ? existing.optString("greeting") : "");
+        EditText prompt = settingsField("角色设定与行为规则（系统提示词）",
+                editing ? existing.optString("systemPrompt") : "");
+        prompt.setMinLines(5);
+        prompt.setMaxLines(9);
+        prompt.setGravity(Gravity.TOP | Gravity.START);
+        form.addView(name);
+        form.addView(subtitle);
+        form.addView(icon);
+        form.addView(greeting);
+        form.addView(prompt);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(form);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(editing ? "编辑角色卡" : "新建角色卡")
+                .setView(scroll)
+                .setPositiveButton("保存", null)
+                .setNegativeButton("取消", null)
+                .create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            try {
+                String id = KmCharacterManager.save(this,
+                        editing ? existing.optString("id") : "",
+                        name.getText().toString(),
+                        subtitle.getText().toString(),
+                        icon.getText().toString(),
+                        prompt.getText().toString(),
+                        greeting.getText().toString());
+                if (!editing) {
+                    KmCharacterManager.setActiveId(this, id);
+                    if (currentSession != null) currentSession.characterId = id;
+                    persistSessions();
+                }
+                updateBadges();
+                updateStatus("角色卡已保存");
+                dialog.dismiss();
+            } catch (Exception e) {
+                new AlertDialog.Builder(this).setMessage(e.getMessage())
+                        .setPositiveButton("知道了", null).show();
+            }
+        }));
+        dialog.show();
+    }
+
+    private void showPluginManager() {
+        JSONArray plugins = KmPluginManager.list(this);
+        String[] labels = new String[plugins.length()];
+        for (int i = 0; i < plugins.length(); i++) {
+            JSONObject item = plugins.optJSONObject(i);
+            if (item == null) continue;
+            labels[i] = (item.optBoolean("enabled", false) ? "● 已启用  " : "○ 已停用  ")
+                    + item.optString("name", item.optString("id"))
+                    + "  ·  v" + item.optString("version", "1.0");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("插件中心 · " + plugins.length() + " 个插件")
+                .setItems(labels, (dialog, which) -> {
+                    JSONObject item = plugins.optJSONObject(which);
+                    if (item != null) showPluginDetails(item);
+                })
+                .setPositiveButton("导入 .kmplugin / JSON", (d, w) -> choosePluginFile())
+                .setNeutralButton("插件格式示例", (d, w) -> sharePluginTemplate())
+                .setNegativeButton("关闭", null)
+                .show();
+    }
+
+    private void showPluginDetails(JSONObject plugin) {
+        String id = plugin.optString("id", "");
+        JSONArray tools = plugin.optJSONArray("tools");
+        StringBuilder info = new StringBuilder();
+        info.append(plugin.optString("description", "无简介"));
+        info.append("\n\n版本：").append(plugin.optString("version", "1.0.0"));
+        info.append("\n工具：");
+        if (tools == null || tools.length() == 0) info.append("无（仅提供提示词扩展）");
+        else {
+            for (int i = 0; i < tools.length(); i++) {
+                if (i > 0) info.append("、");
+                info.append(tools.optString(i));
+            }
+        }
+        info.append("\n\n提示词扩展：")
+                .append(plugin.optString("systemPrompt", "").isEmpty() ? "无" : "已配置");
+        info.append("\n\n安全边界：插件只能调用 KM 已实现的工具，不加载外部代码。");
+        boolean enabled = plugin.optBoolean("enabled", false);
+        boolean builtin = plugin.optBoolean("builtin", false);
+        new AlertDialog.Builder(this)
+                .setTitle(plugin.optString("name", id))
+                .setMessage(info.toString())
+                .setPositiveButton(enabled ? "停用插件" : "启用插件", (d, w) -> {
+                    KmPluginManager.setEnabled(this, id, !enabled);
+                    updateStatus((enabled ? "已停用：" : "已启用：") + plugin.optString("name"));
+                    showPluginManager();
+                })
+                .setNeutralButton(builtin ? "关闭" : "卸载插件", (d, w) -> {
+                    if (!builtin) {
+                        KmPluginManager.uninstall(this, id);
+                        updateStatus("插件已卸载");
+                    }
+                })
+                .setNegativeButton("返回", (d, w) -> showPluginManager())
+                .show();
+    }
+
+    private void choosePluginFile() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        try {
+            startActivityForResult(intent, REQUEST_IMPORT_PLUGIN);
+        } catch (Exception e) {
+            updateStatus("无法打开文件选择器");
+        }
+    }
+
+    private void sharePluginTemplate() {
+        String template = "{\n"
+                + "  \"apiVersion\": 1,\n"
+                + "  \"id\": \"example.myplugin\",\n"
+                + "  \"name\": \"我的插件\",\n"
+                + "  \"version\": \"1.0.0\",\n"
+                + "  \"description\": \"插件简介\",\n"
+                + "  \"systemPrompt\": \"注入到系统提示词中的规则\",\n"
+                + "  \"tools\": [\"get_screen\", \"read_file\"]\n"
+                + "}\n";
+        Intent share = new Intent(Intent.ACTION_SEND);
+        share.setType("application/json");
+        share.putExtra(Intent.EXTRA_SUBJECT, "KM 插件清单模板");
+        share.putExtra(Intent.EXTRA_TEXT, template);
+        startActivity(Intent.createChooser(share, "分享插件模板"));
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_IMPORT_PLUGIN || resultCode != RESULT_OK || data == null
+                || data.getData() == null) return;
+        try (java.io.InputStream inputStream = getContentResolver().openInputStream(data.getData())) {
+            if (inputStream == null) throw new IllegalStateException("无法读取选择的文件。");
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[4096];
+            int count;
+            while ((count = inputStream.read(chunk)) != -1) {
+                if (buffer.size() + count > 256 * 1024) throw new IllegalArgumentException("插件文件不能超过 256 KB。");
+                buffer.write(chunk, 0, count);
+            }
+            JSONObject manifest = new JSONObject(new String(buffer.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+            String name = KmPluginManager.installPackage(this, manifest);
+            updateStatus("已导入插件：" + name + "（默认停用）");
+            showPluginManager();
+        } catch (Exception e) {
+            new AlertDialog.Builder(this).setTitle("插件导入失败")
+                    .setMessage(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage())
+                    .setPositiveButton("知道了", null).show();
+        }
     }
 
     @Override

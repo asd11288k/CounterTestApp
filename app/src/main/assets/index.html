@@ -3305,7 +3305,8 @@ document.addEventListener('touchcancel', swipeEnd, { passive: true });
     if (currentPage) send('page.leave', currentPage, { durationMs: Math.max(0, now - enteredAt) });
     currentPage = next;
     enteredAt = now;
-    send('page.enter', currentPage, {});
+    send('page.enter', currentPage, { route: currentPage, moduleId: currentPage, source: 'webview' });
+    send('navigation.change', currentPage, { route: currentPage, moduleId: currentPage, source: 'webview' });
   }
   document.addEventListener('click', function (event) {
     var target = event.target;
@@ -3314,13 +3315,43 @@ document.addEventListener('touchcancel', swipeEnd, { passive: true });
     if (!control || control.disabled) return;
     var targetId = control.id || (control.parentElement && control.parentElement.id) || '';
     var aria = control.getAttribute ? (control.getAttribute('aria-label') || '') : '';
+    var moduleId = control.getAttribute ? (control.getAttribute('data-km-module') || detectPage()) : detectPage();
+    var action = control.getAttribute ? (control.getAttribute('data-km-action') || 'activate') : 'activate';
     send('ui.click', detectPage(), {
       targetId: targetId, label: aria || targetId,
       tag: String(control.tagName || '').toLowerCase(),
       role: control.getAttribute ? (control.getAttribute('role') || '') : '',
-      className: String(control.className || '').slice(0, 70)
+      className: String(control.className || '').slice(0, 70),
+      moduleId: moduleId, route: detectPage(), action: action, source: 'webview'
     });
     setTimeout(updatePage, 0);
+  }, true);
+  // Focus telemetry records only control identity/type; it never reads values or text.
+  document.addEventListener('focusin', function (event) {
+    var el = event.target;
+    if (!el || !el.tagName) return;
+    send('ui.focus', detectPage(), {
+      targetId: el.id || '', componentType: String(el.type || el.tagName).toLowerCase(),
+      moduleId: detectPage(), source: 'webview'
+    });
+  }, true);
+  document.addEventListener('focusout', function (event) {
+    var el = event.target;
+    if (!el || !el.tagName) return;
+    send('ui.blur', detectPage(), {
+      targetId: el.id || '', componentType: String(el.type || el.tagName).toLowerCase(),
+      moduleId: detectPage(), source: 'webview'
+    });
+  }, true);
+  document.addEventListener('contextmenu', function (event) {
+    var el = event.target;
+    if (!el || !el.closest) return;
+    var control = el.closest('button,a,[role="button"],.agent-item,.sk-item');
+    if (!control) return;
+    send('ui.long_press', detectPage(), {
+      targetId: control.id || '', moduleId: detectPage(), action: 'context-menu',
+      source: 'webview'
+    });
   }, true);
   if (window.MutationObserver && document.body) {
     var observer = new MutationObserver(function () { updatePage(); });

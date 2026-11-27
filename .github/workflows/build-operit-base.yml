@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/build-operit-base.yml
       - ci/apply_km_overlay.py
+      - ci/patch_operit_runtime.py
+      - patches/operit/**
       - app/src/main/res/mipmap-xxxhdpi/ic_launcher.jpg
       - .gitmodules
       - docs/OPERIT_PORT_PLAN.md
@@ -145,6 +147,10 @@ jobs:
       - name: Apply KM product identity and launcher icon
         working-directory: vendor/operit
         run: python3 ../ci/apply_km_overlay.py "$PWD"
+
+      - name: Integrate KM runtime journal and dynamic prompt context
+        working-directory: vendor/operit
+        run: python3 ../ci/patch_operit_runtime.py "$PWD"
 
       - name: Configure Android SDK
         working-directory: vendor/operit

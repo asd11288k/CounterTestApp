@@ -5,6 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+concurrency:
+  group: km-main-apk-build
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -19,13 +28,37 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Restore stable KM signing identity
+        uses: actions/cache@v4
+        with:
+          path: .km-signing/km-release.jks
+          key: km-signing-identity-v1
 
-      - name: Locate Android SDK manager
+      - name: Create signing identity on first build only
         shell: bash
         run: |
-          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          if [ ! -f .km-signing/km-release.jks ]; then
+            if [ ! -f .github/KM_SIGNING_BOOTSTRAP ]; then
+              echo "Signing identity cache is missing; refusing to generate a replacement."
+              exit 1
+            fi
+            mkdir -p .km-signing
+            keytool -genkeypair -v -keystore .km-signing/km-release.jks \
+              -storepass android -keypass android -alias km-release \
+              -keyalg RSA -keysize 3072 -validity 10000 \
+              -dname "CN=KM Personal Agent, OU=Mobile, O=KM, L=Personal, S=Personal, C=CN"
+          fi
+
+      - name: Scheduled cache check
+        if: github.event_name == 'schedule'
+        run: test -s .km-signing/km-release.jks
+
+      - name: Locate Android SDK manager
+        if: github.event_name != 'schedule'
+        shell: bash
+        run: |
+          SDK_ROOT="$(printenv ANDROID_HOME)"
+          if [ -z "$SDK_ROOT" ]; then SDK_ROOT="/usr/local/lib/android/sdk"; fi
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
           if [ -z "$SDKMANAGER" ]; then
             echo "sdkmanager was not found under $SDK_ROOT/cmdline-tools"
@@ -35,30 +68,30 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
 
       - name: Accept Android SDK licenses
+        if: github.event_name != 'schedule'
         shell: bash
         run: |
-          set +e
-          yes | sdkmanager --licenses
-          statuses=( "${PIPESTATUS[@]}" )
-          set -e
-          sdk_status="${statuses[1]}"
-          if [ "$sdk_status" -ne 0 ]; then
-            echo "sdkmanager --licenses failed with exit code $sdk_status"
-            exit "$sdk_status"
-          fi
-          echo "Android SDK licenses accepted."
+          yes | sdkmanager --licenses || true
+          sdkmanager --licenses
 
       - name: Install Android SDK packages
-        shell: bash
+        if: github.event_name != 'schedule'
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Build KM APK with stable signing
+        if: github.event_name != 'schedule'
         run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          gradle --no-daemon clean assembleDebug
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/km-0.3.0.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/km-0.3.0.apk
+          sha256sum dist/km-0.3.0.apk > dist/SHA256SUMS.txt
 
-      - name: Build debug APK
-        run: gradle assembleDebug
-
-      - name: Upload APK
+      - name: Upload signed APK
+        if: github.event_name != 'schedule'
         uses: actions/upload-artifact@v4
         with:
-          name: km-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: km-0.3.0-signed
+          path: dist/*
           if-no-files-found: error
+          retention-days: 90

@@ -24,8 +24,10 @@ jobs:
         with:
           submodules: false
 
-      - name: Initialize public upstream terminal dependency
-        run: git -C vendor/operit submodule update --init --recursive terminal
+      - name: Initialize pinned upstream source and public terminal dependency
+        run: |
+          git submodule update --init vendor/operit
+          git -C vendor/operit submodule update --init --recursive terminal
 
       - name: Set up Java
         uses: actions/setup-java@v5

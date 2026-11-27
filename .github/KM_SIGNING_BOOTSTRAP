@@ -1,0 +1,2 @@
+This marker permits the one-time creation of the stable KM signing identity.
+Delete it after the first successful signed APK build.

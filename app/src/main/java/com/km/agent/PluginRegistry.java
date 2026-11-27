@@ -37,7 +37,7 @@ public final class PluginRegistry {
             JSONArray a=new JSONArray();for(String n:names)a.put(n);p.put("tools",a);plugins.put(p);}
         catch(JSONException ignored){}
     }
-    public synchronized JSONArray list(){return new JSONArray(plugins.toString());}
+    public synchronized JSONArray list(){try{return new JSONArray(plugins.toString());}catch(Exception e){return new JSONArray();}}
     public synchronized Set<String> enabledToolIds(){
         Set<String> out=new HashSet<String>();
         for(int i=0;i<plugins.length();i++){JSONObject p=plugins.optJSONObject(i);if(p==null||!p.optBoolean("enabled",false))continue;

@@ -14,6 +14,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,6 +34,7 @@ public class KmAgent {
     private final Context context;
     private final SharedPreferences prefs;
     private int toolCount = 0;
+    private Set<String> activeTools = new HashSet<>();
     private volatile HttpURLConnection activeConnection;
     private volatile boolean cancelled = false;
 
@@ -83,8 +86,9 @@ public class KmAgent {
         if (model.isEmpty()) throw new IllegalArgumentException("模型名称不能为空。");
         if (apiKey.isEmpty()) throw new IllegalArgumentException("API Key 不能为空，请在模型设置中填写。");
 
+        activeTools = KmPluginManager.enabledToolNames(context);
         String systemPrompt = KmPromptComposer.compose(context, nativeTools, customPrompt);
-        JSONArray toolSchemas = KmTools.schemas();
+        JSONArray toolSchemas = KmTools.schemas(activeTools);
 
         for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
             if (cancelled) throw new java.io.IOException("任务已由用户停止。");
@@ -195,13 +199,7 @@ public class KmAgent {
     }
 
     private boolean isKnownTool(String name) {
-        JSONArray tools = KmTools.schemas();
-        for (int i = 0; i < tools.length(); i++) {
-            JSONObject fn = tools.optJSONObject(i);
-            JSONObject spec = fn == null ? null : fn.optJSONObject("function");
-            if (spec != null && name.equals(spec.optString("name"))) return true;
-        }
-        return false;
+        return name != null && activeTools.contains(name);
     }
 
     private JSONObject post(String endpoint, String apiKey, JSONObject body) throws Exception {

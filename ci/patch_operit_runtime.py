@@ -214,4 +214,58 @@ patch(activity, [
     ),
 ])
 
-print("Applied KM native runtime journal, prompt hook, and tool execution instrumentation.")
+
+# Android 15+ enforces edge-to-edge for modern target SDKs. Make the native
+# Compose root consume safe drawing insets so the top bar never sits under the
+# status bar, camera cutout, or gesture/navigation area.
+patch(activity, [
+    (
+        "import androidx.compose.foundation.layout.Box\n",
+        "import androidx.compose.foundation.layout.Box\n"
+        "import androidx.compose.foundation.layout.WindowInsets\n"
+        "import androidx.compose.foundation.layout.fillMaxSize\n"
+        "import androidx.compose.foundation.layout.safeDrawing\n"
+        "import androidx.compose.foundation.layout.windowInsetsPadding\n",
+        1,
+    ),
+    (
+        "import androidx.core.content.ContextCompat\n",
+        "import androidx.core.content.ContextCompat\nimport androidx.core.view.WindowCompat\n",
+        1,
+    ),
+    (
+        """        super.onCreate(savedInstanceState)
+        KmRuntimeJournal.record("screen.lifecycle", mapOf(""",
+        """        super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        KmRuntimeJournal.record("screen.lifecycle", mapOf(""",
+        1,
+    ),
+    (
+        """        setContent {
+            OperitTheme {
+                Box {""",
+        """        setContent {
+            OperitTheme {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
+                ) {""",
+        1,
+    ),
+])
+
+manifest = operit / "app/src/main/AndroidManifest.xml"
+patch(manifest, [
+    (
+        'android:windowSoftInputMode="adjustPan"',
+        'android:windowSoftInputMode="adjustResize"',
+        1,
+    ),
+])
+
+print("Applied KM runtime hooks, tool telemetry, edge-to-edge safe insets, and resize-aware keyboard handling.")
+

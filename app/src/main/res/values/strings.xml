@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">km</string>
+    <string name="km_accessibility_description">在用户明确授权并逐次确认后，读取当前界面并执行用户要求的点击、滑动和文本输入。</string>
+</resources>

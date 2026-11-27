@@ -84,8 +84,8 @@ jobs:
           gradle --no-daemon clean assembleDebug
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk dist/km-1.0.0.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/km-0.3.0.apk
-          sha256sum dist/km-0.3.0.apk > dist/SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/km-1.0.0.apk
+          sha256sum dist/km-1.0.0.apk > dist/SHA256SUMS.txt
 
       - name: Upload signed APK
         if: github.event_name != 'schedule'

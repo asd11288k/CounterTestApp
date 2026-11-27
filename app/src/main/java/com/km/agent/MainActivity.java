@@ -16,6 +16,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.webkit.JavascriptInterface;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
@@ -63,6 +64,7 @@ public class MainActivity extends Activity {
                 w.setStatusBarColor(bar);
                 w.setNavigationBarColor(bar);
                 MainActivity.this.lastBarColor = bar;   // v1.1.42 #1：记录基准色供 setStatusbarDim 还原
+                if (MainActivity.this.web != null) MainActivity.this.web.setBackgroundColor(bar);
                 // 状态栏图标用深色当且仅当填充足够亮（浅色主题的亮黄/亮绿等）
                 boolean lightIcons = dark; // 深色黑底 → 浅色图标
                 if (fillColor != null && !fillColor.isEmpty()) {
@@ -127,6 +129,7 @@ public class MainActivity extends Activity {
                             (int) (Color.blue(base) * 0.55)) : base;
                     w.setStatusBarColor(target);
                     w.setNavigationBarColor(target);
+                    if (MainActivity.this.web != null) MainActivity.this.web.setBackgroundColor(target);
                     double lum = 0.299 * Color.red(target) + 0.587 * Color.green(target) + 0.114 * Color.blue(target);
                     boolean lightIcons = lum < 150;
                     int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
@@ -377,12 +380,14 @@ public class MainActivity extends Activity {
             return;
         }
 
-        applyTheme(savedTheme(dir));
+        final String initialTheme = savedTheme(dir);
+        applyTheme(initialTheme);
         web = new WebView(this);
-        // 让 WebView 自己避开状态栏与底部手势区（旧 C 方案漏了这步，才出现顶栏重叠/底栏贴边）
-        web.setFitsSystemWindows(true);
+        // Android 15 / targetSdk 35 强制 edge-to-edge，显式给 WebView 应用系统栏和刘海屏安全区。
+        web.setBackgroundColor(lastBarColor);
         setContentView(web, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        applySystemInsets(web);
         WebSettings ws = web.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);          // 页面 fetch/localStorage 需要
@@ -410,6 +415,47 @@ public class MainActivity extends Activity {
             }
         });
         web.loadUrl("http://127.0.0.1:" + gateway.port() + "/");
+    }
+
+    /**
+     * Applies status-bar, navigation-bar and display-cutout insets to the WebView.
+     * targetSdk 35 enables edge-to-edge enforcement on Android 15, so
+     * fitsSystemWindows alone is not a reliable content-safe-area strategy.
+     */
+    private void applySystemInsets(final WebView target) {
+        target.setFitsSystemWindows(false);
+        target.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+            @Override
+            public WindowInsets onApplyWindowInsets(View view, WindowInsets insets) {
+                int left;
+                int top;
+                int right;
+                int bottom;
+                if (Build.VERSION.SDK_INT >= 30) {
+                    android.graphics.Insets safe = insets.getInsets(
+                            WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    left = safe.left;
+                    top = safe.top;
+                    right = safe.right;
+                    bottom = safe.bottom;
+                } else {
+                    left = insets.getSystemWindowInsetLeft();
+                    top = insets.getSystemWindowInsetTop();
+                    right = insets.getSystemWindowInsetRight();
+                    bottom = insets.getSystemWindowInsetBottom();
+                    if (Build.VERSION.SDK_INT >= 28 && insets.getDisplayCutout() != null) {
+                        android.view.DisplayCutout cutout = insets.getDisplayCutout();
+                        left = Math.max(left, cutout.getSafeInsetLeft());
+                        top = Math.max(top, cutout.getSafeInsetTop());
+                        right = Math.max(right, cutout.getSafeInsetRight());
+                        bottom = Math.max(bottom, cutout.getSafeInsetBottom());
+                    }
+                }
+                view.setPadding(left, top, right, bottom);
+                return insets;
+            }
+        });
+        target.requestApplyInsets();
     }
 
     private byte[] readAsset(String name) throws Exception {

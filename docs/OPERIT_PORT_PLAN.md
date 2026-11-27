@@ -10,7 +10,7 @@ KM 以原生 Android Agent 运行时为核心，界面保留现有轻量 Web UI 
 - 旧 Java/WebView 宿主仍保留在根工程中，但已停止自动构建/发布；它不是目标 Agent 核心。
 - 新增独立的 `.github/workflows/build-operit-base.yml`，按上游官方 CI 流程准备依赖、构建 native ripgrep、WebChat、ToolPkg 和原生 Android APK。
 - 新增 `ci/apply_km_overlay.py`：构建时把原生应用包名改为 `com.km.agent.mobile`，应用名改为 `km`，并将仓库内用户提供的图标应用到上游自适应图标资源。
-- 将 Helper 的纯前端 `index.html` 单独保存为 `ui/helper/index.html`，构建时只复制该页面到 APK 的 `assets/km-shell/`；不复制 Helper 的 Java 后端。当前仅完成资源纳入，WebView 展示层和原生 Operit API 桥接仍未完成。
+- 不使用 Helper 的前端页面、后端或功能。KM 直接以 Operit 原生 Jetpack Compose 界面和 Kotlin Agent 运行时为基线，避免双 UI、双 Agent 核心并存。
 - 新增 `patches/operit/KmRuntimeJournal.kt` 和 `ci/patch_operit_runtime.py`：在原生工程内接入本地脱敏事件日志；通过真实的 `PromptHookRegistry` 注册 KM 运行上下文 Hook；在真实 `ToolExecutionManager` 调用前后记录工具 ID、耗时和成功状态。
 - 旧 `KmPromptComposer`、`PromptPipeline`、`AgentLoop`、`KmTools` 不再作为目标核心，后续应从最终 APK 中移除旧宿主。
 
@@ -38,14 +38,14 @@ KM 以原生 Android Agent 运行时为核心，界面保留现有轻量 Web UI 
 
 验收：提示词预览能展示真实运行时最终生成的提示词；一次真实工具调用能经过原生执行器并返回结构化结果；扩展启停能影响工具目录和提示词。
 
-## 阶段 C：KM 界面适配
+## 阶段 C：KM 原生界面适配
 
-- 先盘点原生 Agent 的 ViewModel、Repository、Service 和导航边界。
-- 将现有 Web UI 作为显示层，通过有类型、有权限边界的桥接接口访问原生状态和操作。
-- 移除旧的模型请求、提示词、工具循环和插件执行路径，避免双 Agent 核心并存。
-- 保留必要的视觉资源和交互模式，不保留旧后端行为。
+- 保留 Operit 原生 Jetpack Compose 页面、ViewModel、Repository、Service 和导航。
+- 以原生 Material 组件为基础统一顶栏、导航、设置页、聊天输入区的视觉规范和触控尺寸。
+- 不引入 Helper 的页面或功能，不再使用旧 WebView 宿主；逐步清理根目录中的旧 Java 壳代码。
+- 对所有主页面检查小屏幕、横屏、字体缩放、状态栏/挖孔和输入法场景。
 
-验收：所有模型请求、提示词生成、工具执行和扩展加载均由原生运行时完成；Web UI 只负责展示和发送用户操作。
+验收：界面完全由原生 Compose 构建；所有模型请求、提示词生成、工具执行和扩展加载均经过 Operit 原生运行时。
 
 ## 阶段 D：软件结构感知与事件日志
 
@@ -78,16 +78,17 @@ KM 以原生 Android Agent 运行时为核心，界面保留现有轻量 Web UI 
 
 ## 目前已提交的进度
 
-- 继续执行完整原生 APK 构建验收；未通过签名校验前不发布安装包。
+- 原生 Operit 基线 APK 已在 GitHub Actions run 17 构建成功并上传；构建阶段的签名验证通过。下载产物后已检查 APK ZIP 完整性，无损坏条目。
+- 最新提交增加状态栏/导航栏安全区域与键盘适配，并增加 APK applicationId、应用名和 zipalign 验证；该改动需要新一轮 CI 通过后才算验收。
 
 - 固定上游源码子模块，并按上游指南只初始化公开的 terminal 子模块。
-- 新增原生 Operit 独立构建流程，使用 JDK 21、Android SDK/NDK、CMake、Node、Python、Rust 和上游依赖准备脚本。
+- 新增原生 Operit 独立构建流程，使用 JDK 21、Android SDK/NDK、CMake、Node、Python、Rust 和上游依赖准备脚本。2026-11-27 的 GitHub Actions 第 17 次构建已完整成功，原生 APK 产物已上传，签名校验步骤通过。
 - 已验证上游依赖下载、依赖解包、native ripgrep、WebChat、年度报告和 ToolPkg 预构建步骤均成功；首次完整 Gradle APK 构建仍在验证中。
 - 新增 KM 原生包名、应用名和用户图标构建覆盖层。
-- 已将 Helper 的纯前端 HTML 单独纳入构建资源，后续将把其 REST API 调用改为调用原生 Operit 服务；目前还没有切换主界面。
+- 当前 APK 不包含 Helper 页面或其后端；主界面直接使用 Operit 原生 Compose UI。
 - 新增原生本地 JSONL 事件日志，并把日志摘要接入真实系统提示词 Hook。
 - 在真实原生工具执行路径记录工具调用元数据；不记录工具参数、结果正文、聊天正文或提示词正文。
-- 旧 WebView 宿主的 Insets 修改仍保留为历史实验，最终切换到原生 Operit 主界面后需重新进行真机适配验证。
+- 已在 KM 构建覆盖层中加入 `WindowCompat.setDecorFitsSystemWindows(window, false)` 和 Compose `WindowInsets.safeDrawing` 根布局处理，并把主 Activity 输入法模式改为 `adjustResize`；需以新构建及真机检查完成验收。
 
 ## 发布门槛
 

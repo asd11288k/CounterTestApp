@@ -3,14 +3,14 @@ plugins {
 }
 
 android {
-    namespace 'com.example.myapp'
+    namespace 'com.km.agent'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.example.myapp'
-        minSdk 23
+        applicationId 'com.km.agent'
+        minSdk 26
         targetSdk 35
         versionCode 1
-        versionName '1.0'
+        versionName '0.1.0'
     }
 }

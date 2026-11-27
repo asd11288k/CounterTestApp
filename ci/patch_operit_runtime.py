@@ -183,7 +183,7 @@ activity = operit / "app/src/main/java/com/ai/assistance/operit/ui/main/MainActi
 patch(activity, [
     (
         "package com.ai.assistance.operit.ui.main",
-        "package com.ai.assistance.operit.ui.main\\n\\nimport com.ai.assistance.operit.core.telemetry.KmRuntimeJournal\\n",
+        "package com.ai.assistance.operit.ui.main\n\nimport com.ai.assistance.operit.core.telemetry.KmRuntimeJournal\n",
         1,
     ),
     (

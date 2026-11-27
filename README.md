@@ -28,7 +28,7 @@ Operit 上游仓库标注 LGPL-3.0-only。后续若直接移植其代码或资�
 
 应用显示名称：km  
 Android applicationId：`com.km.agent.mobile`  
-版本：1.0.1（versionCode 4）
+版本：1.0.1（versionCode 5）
 
 applicationId 与原 KM 0.3 系列一致，构建工作流沿用稳定签名配置，目标是支持覆盖更新。首次迁移后的数据结构发生变化，旧版专有会话数据并不会自动转换为 helper 的智能体/会话存储。
 

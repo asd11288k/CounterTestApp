@@ -93,7 +93,13 @@ public class KmAccessibilityService extends AccessibilityService {
         }
     }
 
-    private static String indent(int depth) {\n        StringBuilder padding = new StringBuilder();\n        for (int i = 0; i < Math.min(depth, 10); i++) padding.append("  ");\n        return padding.toString();\n    }\n\n    private static String quote(String value) {
+    private static String indent(int depth) {
+        StringBuilder padding = new StringBuilder();
+        for (int i = 0; i < Math.min(depth, 10); i++) padding.append("  ");
+        return padding.toString();
+    }
+
+    private static String quote(String value) {
         if (value == null || value.isEmpty()) return "\"\"";
         String clean = value.replace("\\", "\\\\").replace("\"", "\\\"")
                 .replace("\n", " ").replace("\r", " ");

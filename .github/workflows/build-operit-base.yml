@@ -1,0 +1,160 @@
+name: Build native Operit base (migration validation)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/build-operit-base.yml
+      - .gitmodules
+      - docs/OPERIT_PORT_PLAN.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: km-operit-base-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "22"
+  ANDROID_NDK_VERSION: "25.1.8937393"
+  ANDROID_CMAKE_VERSION: "3.22.1"
+  ANDROID_API_LEVEL: "26"
+  RUST_VERSION: "1.88.0"
+  MANUAL_DEPS_DIR: manual-deps
+
+jobs:
+  build-operit-base:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - name: Checkout KM and pinned Operit source
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Initialize public upstream terminal dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          git submodule update --init vendor/operit
+          git -C vendor/operit submodule sync -- terminal
+          git -C vendor/operit submodule update --init --recursive --depth 1 terminal
+          git -C vendor/operit submodule status -- terminal
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            vendor/operit/package-lock.json
+            vendor/operit/web-chat/package-lock.json
+            vendor/operit/annual-report/package-lock.json
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK, NDK and CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-34" \
+            "platforms;android-36" \
+            "build-tools;34.0.0" \
+            "build-tools;35.0.0" \
+            "ndk;${ANDROID_NDK_VERSION}" \
+            "cmake;${ANDROID_CMAKE_VERSION}"
+
+      - name: Restore Android dependency cache
+        id: cache-manual-deps
+        uses: actions/cache@v4
+        with:
+          path: vendor/operit/${{ env.MANUAL_DEPS_DIR }}
+          key: operit-android-deps-${{ runner.os }}-${{ hashFiles('vendor/operit/ci/script/download_android_dependencies.sh', 'vendor/operit/ci/script/prepare_android_dependencies.py') }}
+
+      - name: Download upstream Android dependencies
+        if: steps.cache-manual-deps.outputs.cache-hit != 'true'
+        working-directory: vendor/operit
+        run: bash ci/script/download_android_dependencies.sh full "${MANUAL_DEPS_DIR}"
+
+      - name: Prepare upstream Android dependencies
+        working-directory: vendor/operit
+        run: |
+          python3 ci/script/prepare_android_dependencies.py \
+            --profile full \
+            --archives "${MANUAL_DEPS_DIR}" \
+            --repository "$GITHUB_WORKSPACE/vendor/operit"
+
+      - name: Build native ripgrep
+        shell: bash
+        working-directory: vendor/operit
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${ANDROID_NDK_VERSION}"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android${ANDROID_API_LEVEL}-clang"
+          rustup toolchain install "${RUST_VERSION}" --profile minimal
+          rustup target add --toolchain "${RUST_VERSION}" aarch64-linux-android
+          cargo "+${RUST_VERSION}" build \
+            --manifest-path tools/native_ripgrep/Cargo.toml \
+            --release --target aarch64-linux-android --locked
+          install -Dm755 \
+            tools/native_ripgrep/target/aarch64-linux-android/release/liboperit_ripgrep.so \
+            app/src/main/jniLibs/arm64-v8a/liboperit_ripgrep.so
+          test -s app/src/main/jniLibs/arm64-v8a/liboperit_ripgrep.so
+
+      - name: Install JavaScript dependencies
+        working-directory: vendor/operit
+        run: |
+          set -euo pipefail
+          npm install -g pnpm@10.34.5
+          npm ci --no-audit --no-fund
+          npm --prefix web-chat ci --no-audit --no-fund
+          npm --prefix annual-report ci --no-audit --no-fund
+
+      - name: Build WebChat and annual report assets
+        working-directory: vendor/operit
+        run: |
+          npm run build:webchat
+          npm run build:annualreport
+
+      - name: Build bundled ToolPkg packages
+        working-directory: vendor/operit
+        run: |
+          npm run build:examples:github
+          python3 tools/example_packages/sync_example_packages.py --no-hot-reload
+
+      - name: Configure Android SDK
+        working-directory: vendor/operit
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Build native Operit clone APK
+        working-directory: vendor/operit
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:assembleClone --stacktrace --no-daemon
+
+      - name: Upload native base APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: operit-native-base-${{ github.run_number }}
+          path: vendor/operit/app/build/outputs/apk/clone/app-clone.apk
+          if-no-files-found: error
+          retention-days: 14

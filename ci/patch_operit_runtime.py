@@ -179,4 +179,39 @@ patch(application, [
     ),
 ])
 
+activity = operit / "app/src/main/java/com/ai/assistance/operit/ui/main/MainActivity.kt"
+patch(activity, [
+    (
+        "package com.ai.assistance.operit.ui.main\\n",
+        "package com.ai.assistance.operit.ui.main\\n\\nimport com.ai.assistance.operit.core.telemetry.KmRuntimeJournal\\n",
+        1,
+    ),
+    (
+        """    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)""",
+        """    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        KmRuntimeJournal.record("screen.lifecycle", mapOf(
+            "screenName" to "main",
+            "action" to "create",
+            "source" to "native"
+        ))""",
+        1,
+    ),
+    (
+        """    override fun onDestroy() {
+        super.onDestroy()
+        AppLogger.d(TAG, "onDestroy called")""",
+        """    override fun onDestroy() {
+        KmRuntimeJournal.record("screen.lifecycle", mapOf(
+            "screenName" to "main",
+            "action" to "destroy",
+            "source" to "native"
+        ))
+        super.onDestroy()
+        AppLogger.d(TAG, "onDestroy called")""",
+        1,
+    ),
+])
+
 print("Applied KM native runtime journal, prompt hook, and tool execution instrumentation.")

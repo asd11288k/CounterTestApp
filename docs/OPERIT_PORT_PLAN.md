@@ -7,9 +7,11 @@ KM 以原生 Android Agent 运行时为核心，界面保留现有轻量 Web UI 
 ## 当前基线
 
 - 上游 Android Agent 源码固定在 `vendor/operit` 子模块，提交：`7a39941bad80209973c535046a18195c5da9e647`。
-- 当前根工程仍是旧 Java/WebView 宿主，尚未把上游 Gradle 多模块工程纳入实际 APK。
-- 当前 `KmPromptComposer`、`PromptPipeline`、`AgentLoop`、`KmTools` 等仍是旧实现，不应作为迁移完成的依据。
-- 当前构建成功只代表旧 KM 工程可编译，不代表上游运行时已经进入 APK。
+- 旧 Java/WebView 宿主仍保留在根工程中，但已停止自动构建/发布；它不是目标 Agent 核心。
+- 新增独立的 `.github/workflows/build-operit-base.yml`，按上游官方 CI 流程准备依赖、构建 native ripgrep、WebChat、ToolPkg 和原生 Android APK。
+- 新增 `ci/apply_km_overlay.py`：构建时把原生应用包名改为 `com.km.agent.mobile`，应用名改为 `km`，并将仓库内用户提供的图标应用到上游自适应图标资源。
+- 新增 `patches/operit/KmRuntimeJournal.kt` 和 `ci/patch_operit_runtime.py`：在原生工程内接入本地脱敏事件日志；通过真实的 `PromptHookRegistry` 注册 KM 运行上下文 Hook；在真实 `ToolExecutionManager` 调用前后记录工具 ID、耗时和成功状态。
+- 旧 `KmPromptComposer`、`PromptPipeline`、`AgentLoop`、`KmTools` 不再作为目标核心，后续应从最终 APK 中移除旧宿主。
 
 ## 阶段 A：构建基座
 
@@ -75,10 +77,13 @@ KM 以原生 Android Agent 运行时为核心，界面保留现有轻量 Web UI 
 
 ## 目前已提交的进度
 
-- 固定上游源码子模块。
-- CI 已启用递归子模块检出。
-- 原生 Insets 接收容器调整已提交，尚待真机验证。
-- 事件日志白名单已扩展，允许记录导航、工具、提示词和扩展生命周期的元数据；前端和原生执行链路尚未全部接入这些事件。
+- 固定上游源码子模块，并按上游指南只初始化公开的 terminal 子模块。
+- 新增原生 Operit 独立构建流程，使用 JDK 21、Android SDK/NDK、CMake、Node、Python、Rust 和上游依赖准备脚本。
+- 已验证上游依赖下载、依赖解包、native ripgrep、WebChat、年度报告和 ToolPkg 预构建步骤均成功；首次完整 Gradle APK 构建仍在验证中。
+- 新增 KM 原生包名、应用名和用户图标构建覆盖层。
+- 新增原生本地 JSONL 事件日志，并把日志摘要接入真实系统提示词 Hook。
+- 在真实原生工具执行路径记录工具调用元数据；不记录工具参数、结果正文、聊天正文或提示词正文。
+- 旧 WebView 宿主的 Insets 修改仍保留为历史实验，最终切换到原生 Operit 主界面后需重新进行真机适配验证。
 
 ## 发布门槛
 

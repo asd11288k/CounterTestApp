@@ -1,0 +1,9 @@
+{
+  "apiVersion": 1,
+  "id": "example.myplugin",
+  "name": "示例任务规划插件",
+  "version": "1.0.0",
+  "description": "将任务拆分成可验证步骤，并在工具操作后检查结果。",
+  "systemPrompt": "复杂任务请先输出简短计划。每一步完成后根据工具结果更新计划，不要声称未验证的步骤已经完成。",
+  "tools": ["get_screen", "list_workspace", "read_file"]
+}

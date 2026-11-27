@@ -76,7 +76,7 @@ public class KmAccessibilityService extends AccessibilityService {
         if (!value.isEmpty() || !description.isEmpty() || node.isClickable() || node.isEditable()) {
             Rect bounds = new Rect();
             node.getBoundsInScreen(bounds);
-            out.append("  ".repeat(Math.min(depth, 10)))
+            out.append(indent(depth))
                     .append("#").append(count[0])
                     .append(" class=").append(node.getClassName())
                     .append(" text=").append(quote(value))
@@ -93,7 +93,7 @@ public class KmAccessibilityService extends AccessibilityService {
         }
     }
 
-    private static String quote(String value) {
+    private static String indent(int depth) {\n        StringBuilder padding = new StringBuilder();\n        for (int i = 0; i < Math.min(depth, 10); i++) padding.append("  ");\n        return padding.toString();\n    }\n\n    private static String quote(String value) {
         if (value == null || value.isEmpty()) return "\"\"";
         String clean = value.replace("\\", "\\\\").replace("\"", "\\\"")
                 .replace("\n", " ").replace("\r", " ");

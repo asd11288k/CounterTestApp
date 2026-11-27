@@ -7,10 +7,31 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.km.agent'
+        // One-time package transition keeps the previously installed 0.2.0 app intact.
+        // Future 0.3+ updates use this id and the cached stable signing identity.
+        applicationId 'com.km.agent.mobile'
         minSdk 26
         targetSdk 35
-        versionCode 2
-        versionName '0.2.0'
+        versionCode 3
+        versionName '0.3.0'
+    }
+
+    signingConfigs {
+        stable {
+            storeFile rootProject.file(".km-signing/km-release.jks")
+            storePassword System.getenv("KM_STORE_PASSWORD") ?: ""
+            keyAlias "km-release"
+            keyPassword System.getenv("KM_KEY_PASSWORD") ?: ""
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.stable
+        }
+        release {
+            signingConfig signingConfigs.stable
+            minifyEnabled false
+        }
     }
 }

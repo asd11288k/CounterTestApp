@@ -1051,7 +1051,7 @@ public final class LocalGateway {
                 public String send(String p, JSONArray extra) {
                     return callUpstream(channelId, p, hist, setting, model, skillPrompt, images, extra);
                 }
-            }, toolTrace, plugins.enabledToolIds());
+            }, toolTrace, plugins.enabledToolIds(), eventJournal);
             // 成功时把最终问答写入持久化 history（工具中间轮不落库）
             if (!answer.startsWith("请求失败") && !"AI返回空内容".equals(answer)
                     && !answer.startsWith("未配置上游") && !answer.startsWith("内置模型不支持图片识别")) {

@@ -17,7 +17,7 @@ import java.util.TimeZone;
 /** Privacy-filtered local interaction journal. Never stores message or form contents. */
 public final class EventJournal {
     private static final long MAX_FILE_BYTES=2L*1024L*1024L;
-    private static final int MAX_LINE_CHARS=4096;
+    private static final int MAX_LINE_CHARS=8192;
     private final File dir, active, previous;
     public EventJournal(File directory) {
         dir=directory==null?new File("runtime"):directory;
@@ -54,8 +54,7 @@ public final class EventJournal {
             if(r.optString("page","").length()>0)page=r.optString("page");
             String name=r.optString("event",""); JSONObject d=r.optJSONObject("details");
             if("page.leave".equals(name)&&d!=null)dwell=Math.max(dwell,d.optLong("durationMs",0L));
-            if("ui.click".equals(name)||"page.enter".equals(name)||"page.leave".equals(name)
-                    ||"app.lifecycle".equals(name)||"attachment.selected".equals(name)){
+            if(isContextEvent(name)){
                 JSONObject item=new JSONObject();
                 try{item.put("timestamp",r.optString("timestamp","")).put("timestampMs",r.optLong("timestampMs",0L))
                     .put("event",name).put("page",r.optString("page","")); if(d!=null)item.put("details",d); actions.put(item);}
@@ -69,11 +68,22 @@ public final class EventJournal {
         return result;
     }
     public synchronized void clear(){if(active.exists())active.delete();if(previous.exists())previous.delete();}
-    private boolean allowed(String e){return "ui.click".equals(e)||"page.enter".equals(e)||"page.leave".equals(e)
-        ||"app.lifecycle".equals(e)||"attachment.selected".equals(e);}
+    private boolean allowed(String e){return isContextEvent(e);}
+    private boolean isContextEvent(String e){
+        return "ui.click".equals(e)||"ui.long_press".equals(e)||"ui.focus".equals(e)
+            ||"ui.blur".equals(e)||"page.enter".equals(e)||"page.leave".equals(e)
+            ||"navigation.change".equals(e)||"app.lifecycle".equals(e)
+            ||"attachment.selected".equals(e)||"tool.invoke".equals(e)
+            ||"tool.result".equals(e)||"prompt.compose".equals(e)
+            ||"extension.activate".equals(e)||"screen.state".equals(e);
+    }
     private JSONObject safeDetails(JSONObject source)throws JSONException{
         JSONObject out=new JSONObject(); if(source==null)return out;
-        String[] keys={"targetId","label","tag","role","className","durationMs","state","kind"};
+        // Strict allowlist: event metadata only. Never persist text, prompt, message, file,
+        // credential, clipboard, or arbitrary form values supplied by the WebView.
+        String[] keys={"targetId","label","tag","role","className","durationMs","state","kind",
+            "moduleId","route","action","source","result","toolId","extensionId","count",
+            "enabled","success","reasonCode","screenName","componentId","componentType"};
         for(String key:keys){Object v=source.opt(key);if(v==null||v==JSONObject.NULL)continue;
             if(v instanceof Number||v instanceof Boolean)out.put(key,v);else out.put(key,clean(String.valueOf(v),80));}
         return out;

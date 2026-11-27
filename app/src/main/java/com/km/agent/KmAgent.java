@@ -26,11 +26,44 @@ public class KmAgent {
     public interface ToolCallbacks {
         boolean confirm(String toolName, String args);
         void onStatus(String message);
+        void onToolEvent(String toolName, String details);
     }
 
     private final Context context;
     private final SharedPreferences prefs;
     private int toolCount = 0;
+    private volatile HttpURLConnection activeConnection;
+    private volatile boolean cancelled = false;
+
+    public void cancel() {
+        cancelled = true;
+        HttpURLConnection connection = activeConnection;
+        if (connection != null) connection.disconnect();
+    }
+
+    public String testConnection() throws Exception {
+        String endpoint = prefs.getString("endpoint", "").trim();
+        String model = prefs.getString("model", "").trim();
+        String apiKey = prefs.getString("api_key", "").trim();
+        if (endpoint.isEmpty() || model.isEmpty() || apiKey.isEmpty()) {
+            throw new IllegalArgumentException("请先填写 API 地址、模型名称和 API Key。");
+        }
+        JSONObject request = new JSONObject();
+        JSONArray messages = new JSONArray();
+        messages.put(new JSONObject().put("role", "user").put("content", "Reply with only: KM connection OK"));
+        request.put("model", model);
+        request.put("messages", messages);
+        request.put("temperature", 0);
+        request.put("max_tokens", 16);
+        JSONObject response = post(endpoint, apiKey, request);
+        JSONArray choices = response.optJSONArray("choices");
+        if (choices == null || choices.length() == 0) {
+            throw new IllegalStateException("API 已响应，但没有返回 choices。");
+        }
+        JSONObject message = choices.getJSONObject(0).optJSONObject("message");
+        String answer = message == null ? "" : message.optString("content", "");
+        return "模型：" + model + "\\n服务返回：" + (answer.trim().isEmpty() ? "连接成功（空回复）" : answer.trim());
+    }
 
     public KmAgent(Context context) {
         this.context = context.getApplicationContext();
@@ -38,6 +71,8 @@ public class KmAgent {
     }
 
     public String run(List<JSONObject> history, ToolCallbacks callbacks) throws Exception {
+        cancelled = false;
+        toolCount = 0;
         String endpoint = prefs.getString("endpoint", "https://api.openai.com/v1/chat/completions").trim();
         String model = prefs.getString("model", "gpt-4o-mini").trim();
         String apiKey = prefs.getString("api_key", "").trim();
@@ -52,6 +87,7 @@ public class KmAgent {
         JSONArray toolSchemas = KmTools.schemas();
 
         for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
+            if (cancelled) throw new java.io.IOException("任务已由用户停止。");
             callbacks.onStatus(round == 0 ? "正在请求模型…" : "正在处理工具结果并继续推理…");
             JSONArray messages = new JSONArray();
             messages.put(new JSONObject().put("role", "system").put("content", systemPrompt));
@@ -138,14 +174,23 @@ public class KmAgent {
         if (name == null || name.trim().isEmpty()) return error("工具名称为空");
         if (!isKnownTool(name)) return error("未知工具：" + name);
 
-        if (KmTools.requiresApproval(name)) {
+        boolean needsApproval = KmTools.requiresApproval(name);
+        if (needsApproval) {
             boolean allowed = callbacks.confirm(name, args.toString());
-            if (!allowed) return error("用户拒绝或取消了本次操作。不要重试同一动作，等待用户下一步指示。");
+            if (!allowed) {
+                String denied = error("用户拒绝或取消了本次操作。不要重试同一动作，等待用户下一步指示。");
+                callbacks.onToolEvent(name, "已拒绝 · " + args.toString());
+                return denied;
+            }
         }
         try {
-            return KmTools.execute(context, name, args);
+            String result = KmTools.execute(context, name, args);
+            callbacks.onToolEvent(name, args.toString() + "\\n" + result);
+            return result;
         } catch (Exception e) {
-            return error(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+            String failure = error(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+            callbacks.onToolEvent(name, "执行失败 · " + failure);
+            return failure;
         }
     }
 
@@ -164,6 +209,8 @@ public class KmAgent {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(urlText).openConnection();
+            activeConnection = connection;
+            if (cancelled) throw new java.io.IOException("任务已由用户停止。");
             connection.setRequestMethod("POST");
             connection.setConnectTimeout(25000);
             connection.setReadTimeout(120000);
@@ -189,6 +236,7 @@ public class KmAgent {
             return new JSONObject(responseText);
         } finally {
             if (connection != null) connection.disconnect();
+            if (activeConnection == connection) activeConnection = null;
         }
     }
 

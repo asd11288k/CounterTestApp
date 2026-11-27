@@ -205,7 +205,7 @@ jobs:
           done
           APK="app/build/outputs/apk/clone/app-clone.apk"
           test -s "$APK"
-          BADGING="$(\"$ANDROID_HOME/build-tools/35.0.0/aapt\" dump badging \"$APK\")"
+          BADGING="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK")"
           grep -F "package: name='com.km.agent.mobile'" <<< "$BADGING"
           grep -F "application-label:'km'" <<< "$BADGING"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"

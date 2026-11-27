@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: km-operit-base-${{ github.ref }}
-  cancel-in-progress: true
+  group: km-operit-base-${{ github.run_id }}
+  cancel-in-progress: false
 
 env:
   JAVA_VERSION: "21"

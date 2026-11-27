@@ -156,6 +156,12 @@ public final class AgentLoop {
     }
 
     public static String run(String prompt, Tools tools, Sender sender, JSONArray trace, Set<String> allowedTools) {
+        return run(prompt, tools, sender, trace, allowedTools, null);
+    }
+
+    /** Runtime journal receives metadata only; tool arguments and result bodies are never persisted there. */
+    public static String run(String prompt, Tools tools, Sender sender, JSONArray trace,
+                             Set<String> allowedTools, EventJournal journal) {
         if (sender == null) return "请求失败: 无可用上游";
         JSONArray feedback = new JSONArray();
         String current = prompt;
@@ -176,12 +182,26 @@ public final class AgentLoop {
             }
             String id = normalizeId(c.id, Tools.list());
             long t0 = System.currentTimeMillis();
+            if (journal != null) {
+                try { journal.record("tool.invoke", "agent", new JSONObject()
+                        .put("toolId", id).put("action", "invoke").put("moduleId", "tool-runtime")); }
+                catch (JSONException ignored) { }
+            }
             JSONObject result;
             if (allowedTools != null && !allowedTools.contains(id)) {
                 try { result = new JSONObject().put("ok", false).put("error", "该工具未被当前启用的插件开放：" + id); }
                 catch (JSONException ignored) { result = new JSONObject(); }
             } else {
                 result = tools.exec(id, c.args);
+            }
+            long elapsedMs = System.currentTimeMillis() - t0;
+            if (journal != null) {
+                try { journal.record("tool.result", "agent", new JSONObject()
+                        .put("toolId", id).put("action", "complete")
+                        .put("durationMs", elapsedMs).put("success", !result.has("error"))
+                        .put("result", result.has("error") ? "error" : "ok")
+                        .put("moduleId", "tool-runtime")); }
+                catch (JSONException ignored) { }
             }
             if (trace != null) {
                 try {

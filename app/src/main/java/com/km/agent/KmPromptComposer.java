@@ -35,7 +35,7 @@ public final class KmPromptComposer {
         sections.add(section("TOOL_CALL_PROTOCOL",
                 nativeTools
                 ? "本轮使用 OpenAI-compatible 原生 tools/function calling。只能调用请求中实际提供的工具，参数必须符合 schema。工具调用不是普通文本。"
-                : "本轮使用 XML 工具协议。调用格式：\n<tool name=\\"tool_name\\">\n<param name=\\"parameter_name\\">value</param>\n</tool>\n"
+                : "本轮使用 XML 工具协议。调用格式：\n<tool name=\"tool_name\">\n<param name=\"parameter_name\">value</param>\n</tool>\n"
                   + "工具名称必须属于下方当前启用工具清单。XML 参数必须转义；等待工具结果后再继续推理。"));
 
         sections.add(section("DYNAMIC_ANDROID_CONTEXT", buildRuntimeContext(context)));

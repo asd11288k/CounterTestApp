@@ -1,4 +1,4 @@
-name: Build native Operit base (migration validation)
+name: Build KM native Android APK
 
 on:
   workflow_dispatch:
@@ -205,6 +205,10 @@ jobs:
           done
           APK="app/build/outputs/apk/clone/app-clone.apk"
           test -s "$APK"
+          BADGING="$(\"$ANDROID_HOME/build-tools/35.0.0/aapt\" dump badging \"$APK\")"
+          grep -F "package: name='com.km.agent.mobile'" <<< "$BADGING"
+          grep -F "application-label:'km'" <<< "$BADGING"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -v 4 "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
 
       - name: Upload native base APK

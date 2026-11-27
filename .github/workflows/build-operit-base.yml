@@ -60,6 +60,15 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
 
+      - name: Restore stable KM signing identity
+        uses: actions/cache@v4
+        with:
+          path: .km-signing/km-release.jks
+          key: km-signing-identity-v1
+
+      - name: Verify stable KM signing identity
+        run: test -s .km-signing/km-release.jks
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -152,9 +161,16 @@ jobs:
         working-directory: vendor/operit
         run: python3 ../ci/patch_operit_runtime.py "$PWD"
 
-      - name: Configure Android SDK
+      - name: Configure Android SDK and stable KM signing
         working-directory: vendor/operit
-        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+        run: |
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "RELEASE_STORE_FILE=$GITHUB_WORKSPACE/.km-signing/km-release.jks"
+            echo "RELEASE_STORE_PASSWORD=android"
+            echo "RELEASE_KEY_ALIAS=km-release"
+            echo "RELEASE_KEY_PASSWORD=android"
+          } > local.properties
 
       - name: Build native Operit clone APK
         working-directory: vendor/operit
@@ -162,6 +178,7 @@ jobs:
           set -euo pipefail
           chmod +x ./gradlew
           ./gradlew :app:assembleClone --stacktrace --no-daemon
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/clone/app-clone.apk
 
       - name: Upload native base APK
         uses: actions/upload-artifact@v4

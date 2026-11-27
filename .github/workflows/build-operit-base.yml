@@ -127,6 +127,14 @@ jobs:
             --archives "${MANUAL_DEPS_DIR}" \
             --repository "$GITHUB_WORKSPACE/vendor/operit"
 
+      - name: Restore native CMake compilation cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/operit/**/.cxx
+            vendor/operit/**/build/intermediates/cxx
+          key: operit-cmake-${{ runner.os }}-arm64-${{ hashFiles('vendor/operit/**/CMakeLists.txt', 'vendor/operit/**/build.gradle.kts') }}
+
       - name: Build native ripgrep
         shell: bash
         working-directory: vendor/operit

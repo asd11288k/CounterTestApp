@@ -31,27 +31,22 @@ text, app_id_count = re.subn(
 if app_id_count != 1:
     raise SystemExit(f"Expected exactly one upstream applicationId declaration; changed {app_id_count}")
 
-clone_block = re.search(r'(?ms)^\s*create\("clone"\)\s*\{.*?^\s*\}', text)
-if not clone_block:
-    raise SystemExit("Upstream clone build type was not found")
-block = clone_block.group(0)
-block_new, suffix_count = re.subn(
-    r'applicationIdSuffix\s*=\s*"\.clone"',
+text, suffix_count = re.subn(
+    r'applicationIdSuffix\\s*=\\s*"\\.clone"',
     'applicationIdSuffix = ""',
-    block,
+    text,
     count=1,
 )
 if suffix_count != 1:
     raise SystemExit("Could not clear the clone applicationId suffix")
-block_new, label_count = re.subn(
-    r'resValue\("string",\s*"app_name",\s*"[^"]*"\)',
+text, label_count = re.subn(
+    r'resValue\\("string",\\s*"app_name",\\s*"[^"]*"\\)',
     'resValue("string", "app_name", "km")',
-    block_new,
+    text,
     count=1,
 )
 if label_count != 1:
     raise SystemExit("Could not set the clone application label")
-text = text[:clone_block.start()] + block_new + text[clone_block.end():]
 gradle.write_text(text, encoding="utf-8")
 
 # Keep the launcher label consistent in every packaged locale.

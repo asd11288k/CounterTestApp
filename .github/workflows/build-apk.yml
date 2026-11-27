@@ -1,15 +1,12 @@
-name: Build Android APK
+name: Legacy KM shell validation (not Agent release)
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
   schedule:
     - cron: "17 2 * * *"
 
 concurrency:
-  group: km-main-apk-build
+  group: km-legacy-shell-validation
   cancel-in-progress: false
 
 permissions:
@@ -90,7 +87,7 @@ jobs:
         run: |
           gradle --no-daemon clean assembleDebug
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/km-1.0.2.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/km-legacy-shell-validation.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/km-1.0.2.apk
           sha256sum dist/km-1.0.2.apk > dist/SHA256SUMS.txt
 
@@ -98,7 +95,7 @@ jobs:
         if: github.event_name != 'schedule'
         uses: actions/upload-artifact@v4
         with:
-          name: km-1.0.2-signed
+          name: km-legacy-shell-validation
           path: dist/*
           if-no-files-found: error
           retention-days: 90

@@ -72,7 +72,7 @@ public class MainActivity extends Activity {
                     double lum = (0.299 * Color.red(bar) + 0.587 * Color.green(bar) + 0.114 * Color.blue(bar));
                     lightIcons = lum < 150;  // 暗底用浅色图标，亮底用深色图标
                 }
-                int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+                int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
                 if (!lightIcons) {
                     if (Build.VERSION.SDK_INT >= 23) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
                     if (Build.VERSION.SDK_INT >= 26) flags |= 0x10; // SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
@@ -390,6 +390,7 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(lastBarColor);
         FrameLayout root = new FrameLayout(this);
         root.setFitsSystemWindows(false);
+        root.setBackgroundColor(lastBarColor);
         root.addView(web, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root, new ViewGroup.LayoutParams(
@@ -460,7 +461,8 @@ public class MainActivity extends Activity {
                 }
                 // Apply safe area to the WebView itself, so HTML viewport and fixed
                 // headers start below status bar/cutout and end above navigation bar.
-                target.setPadding(left, top, right, bottom);
+                view.setPadding(left, top, right, bottom);
+                target.setPadding(0, 0, 0, 0);
                 return insets;
             }
         });

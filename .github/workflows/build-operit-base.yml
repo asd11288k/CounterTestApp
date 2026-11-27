@@ -66,8 +66,21 @@ jobs:
           path: .km-signing/km-release.jks
           key: km-signing-identity-v1
 
-      - name: Verify stable KM signing identity
-        run: test -s .km-signing/km-release.jks
+      - name: Create KM signing identity on first build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .km-signing
+          if [ ! -s .km-signing/km-release.jks ]; then
+            keytool -genkeypair -v \
+              -keystore .km-signing/km-release.jks \
+              -storepass android \
+              -keypass android \
+              -alias km-release \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=KM Android,O=KM"
+          fi
+          test -s .km-signing/km-release.jks
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

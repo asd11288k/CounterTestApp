@@ -36,11 +36,22 @@ jobs:
 
       - name: Accept Android SDK licenses
         shell: bash
-        run: yes | sdkmanager --licenses
+        run: |
+          set +e
+          yes | sdkmanager --licenses
+          statuses=( "${PIPESTATUS[@]}" )
+          set -e
+          sdk_status="${statuses[1]}"
+          if [ "$sdk_status" -ne 0 ]; then
+            echo "sdkmanager --licenses failed with exit code $sdk_status"
+            exit "$sdk_status"
+          fi
+          echo "Android SDK licenses accepted."
 
       - name: Install Android SDK packages
         shell: bash
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build debug APK
         run: gradle assembleDebug

@@ -32,7 +32,7 @@ if app_id_count != 1:
     raise SystemExit(f"Expected exactly one upstream applicationId declaration; changed {app_id_count}")
 
 text, suffix_count = re.subn(
-    r'applicationIdSuffix\\s*=\\s*"\\.clone"',
+    r'applicationIdSuffix\s*=\s*"\.clone"',
     'applicationIdSuffix = ""',
     text,
     count=1,
@@ -40,7 +40,7 @@ text, suffix_count = re.subn(
 if suffix_count != 1:
     raise SystemExit("Could not clear the clone applicationId suffix")
 text, label_count = re.subn(
-    r'resValue\\("string",\\s*"app_name",\\s*"[^"]*"\\)',
+    r'resValue\("string",\s*"app_name",\s*"[^"]*"\)',
     'resValue("string", "app_name", "km")',
     text,
     count=1,

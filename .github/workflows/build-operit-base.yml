@@ -9,7 +9,6 @@ on:
       - ci/apply_km_overlay.py
       - ci/patch_operit_runtime.py
       - patches/operit/**
-      - ui/helper/index.html
       - app/src/main/res/mipmap-xxxhdpi/ic_launcher.jpg
       - .gitmodules
       - docs/OPERIT_PORT_PLAN.md
@@ -18,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: km-operit-base-${{ github.run_id }}
+  group: km-operit-base
   cancel-in-progress: false
 
 env:
@@ -162,12 +161,6 @@ jobs:
         working-directory: vendor/operit
         run: python3 ../../ci/patch_operit_runtime.py "$PWD"
 
-      - name: Stage Helper pure-frontend shell asset
-        working-directory: vendor/operit
-        run: |
-          mkdir -p app/src/main/assets/km-shell
-          cp ../../ui/helper/index.html app/src/main/assets/km-shell/index.html
-
       - name: Configure Android SDK and stable KM signing
         working-directory: vendor/operit
         run: |
@@ -184,8 +177,22 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x ./gradlew
-          ./gradlew :app:assembleClone --stacktrace --no-daemon
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/clone/app-clone.apk
+          # Maven Central may temporarily return HTTP 429 under shared CI load.
+          # Retry the same deterministic build without changing dependency versions.
+          for attempt in 1 2 3; do
+            if ./gradlew :app:assembleClone --stacktrace --no-daemon --max-workers=2; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "Gradle build failed after 3 attempts."
+              exit 1
+            fi
+            echo "Gradle build attempt $attempt failed; waiting 45 seconds before retry."
+            sleep 45
+          done
+          APK="app/build/outputs/apk/clone/app-clone.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
 
       - name: Upload native base APK
         uses: actions/upload-artifact@v4
